@@ -1,38 +1,51 @@
 module Api
 	module V1
 		class SessionsController < ApplicationController
-			
+
+			before_filter :restrict_access
 			respond_to :json
 
 			def create
-				user = User.find_by_email(params[:user][:email])
+				if !(@user.auth_token)
+					@user.generate_auth_token!()
+					render_success(@user)
 
-				if user && user.authenticate(params[:password])
-					generate_auth_token(user)
-					respond_with user.auth_token
+				else
+					render_success(@user)
+				end
+			end	
 
-				else 
-					user = User.find_by_auth_token(params[:auth_token])
-
-					if user
-						
-							respond_with user.auth_token
-					end
-
-				end	
-
-			end
 
 			private
 
-			def generate_auth_token(user)
-				begin
-					user.auth_token = SecureRandom.hex
-				end while user.class.exists?(auth_token: auth_token)
+			def restrict_access
+
+				if @user = User.find_by_auth_token(request.headers['Authorization'])
+
+				elsif @user = User.find_by_email(params[:user][:email]) 
+					if @user && @user.authenticate(params[:user][:password])
+					end
+				else 
+					render_failure
+				end
+			end
+
+			def render_success(user)
+				render :status => 200,
+				:json => { :success => true,
+					:info => "Login Success",
+					:data => {:auth_token => user.auth_token} }
+			end
+
+			def render_failure
+				
+				render :status => 401,
+				:json => { :success => false,
+					:info => "Request Failure",
+					:data => {} }
+			end
 
 			end
 		end
 
-		
 	end
-end

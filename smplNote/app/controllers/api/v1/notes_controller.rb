@@ -1,38 +1,56 @@
 module Api
 	module V1
 		class NotesController < ApplicationController
+			before_filter :restrict_access
 			respond_to :json
 
 			def index
-				user = User.find_by_auth_token(params[:auth_token])
 
-				if user						
-					respond_with user.notes
-				else
-					respond_with nil
-				end
+				render_success(:notes, @user.notes)
+				
 			end
 
 			def show
-				user = User.find_by_auth_token(params[:auth_token])
 
-				if user						
-					respond_with Note.find(params[:id])
+				if @user == Note.find(params[:id]).user
+					render_success(:note, Note.find(params[:id]))
 				else
-					respond_with nil
+					render_failure
+
 				end
 			end
 
 			def create
-				user = User.find_by_auth_token(params[:auth_token])
 
-				if user		
-					note = user.create_note!(params[:note][:text])				
-					respond_with note
+				note = @user.create_note!(params[:note][:text])				
+				render_success(:note, note)
+
+			end
+
+			private 
+
+			def restrict_access
+
+				if @user = User.find_by_auth_token(request.headers['Authorization'])
 				else
-					respond_with nil
+					render_failure
+				end
+			end
+
+			def render_success(data_tag, data)
+				render :status => 200,
+				:json => { :success => true,
+					:info => "Request Success",
+					:data => {data_tag => data} }
+				end
+
+				def render_failure
+					render :status => 401,
+					:json => { :success => false,
+						:info => "Request Failure",
+						:data => {} }
+					end
+
 				end
 			end
 		end
-	end
-end
